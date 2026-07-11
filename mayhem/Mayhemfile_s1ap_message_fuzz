@@ -1,0 +1,9 @@
+project: open5gs
+target: s1ap_message_fuzz
+testsuite:
+  - https://$MAYHEM_DOMAIN/$MAYHEM_PROJECT/$MAYHEM_TARGET/testsuite.tar
+  - file://mayhem/s1ap_message_fuzz/testsuite
+cmds:
+  - cmd: /mayhem/s1ap_message_fuzz
+    libfuzzer: true
+    cwd: /dev/shm

@@ -1,0 +1,22 @@
+# BuildKit Dockerfile-specific .dockerignore — used in preference to the root .dockerignore
+# when building with `docker build -f mayhem/Dockerfile`.
+#
+# Why this file exists: the upstream root .dockerignore excludes .git (line 5), which would
+# strip git history from the build context.  The Mayhem spec requires git history in the image
+# (§6.2 item 2: commit-image must contain the baked-in revision history so the grader and PATCH
+# tier can reproduce any past build).  This file overrides the root .dockerignore, keeping .git
+# while still excluding large / irrelevant directories to keep the build context lean.
+#
+# Do NOT add .git to this file.
+
+# Transient / generated build artifacts (not source, not needed in Docker context)
+.cache
+build
+mayhem-build
+mayhem-standalone
+mayhem-tests
+vagrant
+
+# Docker-compose overlays (unused in single-container fuzzer build)
+**/docker-compose*.yml
+**/docker-compose*.yaml

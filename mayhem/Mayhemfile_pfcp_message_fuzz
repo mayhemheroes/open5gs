@@ -1,0 +1,9 @@
+project: open5gs
+target: pfcp_message_fuzz
+testsuite:
+  - https://$MAYHEM_DOMAIN/$MAYHEM_PROJECT/$MAYHEM_TARGET/testsuite.tar
+  - file://mayhem/pfcp_message_fuzz/testsuite
+cmds:
+  - cmd: /mayhem/pfcp_message_fuzz
+    libfuzzer: true
+    cwd: /dev/shm

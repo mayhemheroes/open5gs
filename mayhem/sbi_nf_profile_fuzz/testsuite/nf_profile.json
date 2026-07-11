@@ -1,0 +1,1 @@
+{"nfInstanceId":"6e4a4e6b-0a0b-4c0d-8e0f-101112131415","nfType":"AMF","nfStatus":"REGISTERED","plmnList":[{"mcc":"001","mnc":"01"}],"nfServices":[{"serviceInstanceId":"1","serviceName":"namf-comm","versions":[{"apiVersionInUri":"v1","apiFullVersion":"1.0.0"}],"scheme":"http","nfServiceStatus":"REGISTERED"}]}

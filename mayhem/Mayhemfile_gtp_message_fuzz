@@ -1,0 +1,10 @@
+project: open5gs
+target: gtp_message_fuzz
+testsuite:
+  - https://$MAYHEM_DOMAIN/$MAYHEM_PROJECT/$MAYHEM_TARGET/testsuite.tar
+  - file://mayhem/gtp_message_fuzz/testsuite
+cmds:
+  - cmd: /mayhem/gtp_message_fuzz
+    libfuzzer: true
+    cwd: /dev/shm
+    dictionary: /mayhem/mayhem/gtp_message_fuzz.dict
