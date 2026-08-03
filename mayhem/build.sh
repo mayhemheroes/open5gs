@@ -30,6 +30,18 @@ set -euo pipefail
 : "${DEBUG_FLAGS:=-g -gdwarf-3}"
 export DEBUG_FLAGS
 : "${CC:=clang}" ; : "${CXX:=clang++}" ; : "${LIB_FUZZING_ENGINE:=-fsanitize=fuzzer}"
+# COVERAGE_FLAGS: SanitizerCoverage for the fuzzed code — REQUIRED, and easy to lose here.
+# $LIB_FUZZING_ENGINE (-fsanitize=fuzzer) reaches the compiler ONLY as meson's `lib_fuzzing_engine`
+# option, which meson splices into the fuzzer target's *link_args*. At link time it supplies the
+# libFuzzer driver/main but instruments nothing: SanCov is a codegen pass, so it must be on the
+# COMPILE line of every object we want coverage from. Without -fsanitize=fuzzer-no-link in CFLAGS
+# no object carries edge counters — the binary has no __sancov_* sections, libFuzzer starts and
+# warns "no interesting inputs were found so far. Is the code instrumented for coverage?", burns
+# ~200k execs/s finding nothing, and every Mayhem run ends `failed=false` at edges_covered=0. That
+# is a silent hard failure of the integrated gate (SPEC §6.2 item 11) that docker build, fuzz-smoke
+# and a green CI job all pass. Keep this on the compile line for BOTH builds below so the
+# standalone reproducer stays coverage-capable too (the callbacks come from the ASan runtime).
+: "${COVERAGE_FLAGS:=-fsanitize=fuzzer-no-link}"
 : "${STANDALONE_FUZZ_MAIN:=/opt/mayhem/StandaloneFuzzTargetMain.c}"
 : "${MAYHEM_JOBS:=$(nproc)}"
 
@@ -50,11 +62,24 @@ EXTRA_C="-Wno-compound-token-split-by-macro -Wno-format -Wno-error -fcommon"
 # the run on the very first interesting input and mask real bugs. Drop ONLY the `alignment` check;
 # every other UBSan check and all of ASan stay halting (-fno-sanitize-recover=all is still in force).
 SANITIZER_FLAGS="$SANITIZER_FLAGS -fno-sanitize=alignment"
+
+# Second benign-UB relaxation, same character as the alignment one above and needed for the same
+# reason. The vendored asn1c PER runtime opens an open-type chunk with `uint8_t *buf = 0; size_t
+# bufLen = 0;` and, when the first chunk length decodes as 0, skips the REALLOC branch and calls
+# `per_get_many_bits(pd, buf + bufLen, 0, 0)` (lib/asn1c/common/aper_opentype.c:43). That is a literal
+# `NULL + 0`: UB by the letter of C, completely harmless in practice (0 bits are read, nothing is
+# dereferenced). UBSan's `pointer-overflow` check fires on it for the all-zero 5-byte input — which is
+# in upstream's OWN ngap/s1ap seed corpus — so with -fno-sanitize-recover=all the process aborts on
+# seed #1 of every run. Both APER targets (ngap_message_fuzz, s1ap_message_fuzz) then die before
+# covering anything, which is precisely the 0-edge integrated-gate failure this relaxation exists to
+# avoid, and it masks every real ASN.1 bug behind it. Drop ONLY `pointer-overflow`; ASan and every
+# other UBSan check stay halting.
+SANITIZER_FLAGS="$SANITIZER_FLAGS -fno-sanitize=pointer-overflow"
 export CC CXX
 # $DEBUG_FLAGS (-g -gdwarf-3) after $SANITIZER_FLAGS so DWARF-3 overrides the -g inside SANITIZER_FLAGS.
-export CFLAGS="$SANITIZER_FLAGS $DEBUG_FLAGS $EXTRA_C"
+export CFLAGS="$SANITIZER_FLAGS $COVERAGE_FLAGS $DEBUG_FLAGS $EXTRA_C"
 export CXXFLAGS="$CFLAGS"
-export LDFLAGS="$SANITIZER_FLAGS $DEBUG_FLAGS"
+export LDFLAGS="$SANITIZER_FLAGS $COVERAGE_FLAGS $DEBUG_FLAGS"
 
 FUZZERS="gtp_message_fuzz nas_message_fuzz ngap_message_fuzz s1ap_message_fuzz pfcp_message_fuzz nas_5gs_message_fuzz sbi_nf_profile_fuzz sbi_sm_context_fuzz"
 
